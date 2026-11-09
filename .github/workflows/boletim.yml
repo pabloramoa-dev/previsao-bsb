@@ -1,0 +1,24 @@
+name: Boletim regional de Brasília
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - boletim.py
+      - .github/workflows/boletim.yml
+permissions:
+  contents: read
+jobs:
+  boletim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python boletim.py > boletim.txt
+      - run: cat boletim.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boletim-brasilia
+          path: boletim.txt
+          retention-days: 3
