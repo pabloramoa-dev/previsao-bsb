@@ -1,0 +1,75 @@
+name: Previsão BSB — Reels Instagram
+on:
+  schedule:
+    # 06:07 e 18:07, horário fixo de Brasília (UTC-3)
+    - cron: "7 9 * * *"
+    - cron: "7 21 * * *"
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: "Publicar no Instagram? false = somente gerar MP4"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: previsaobsb-instagram
+  cancel-in-progress: false
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+      META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION || 'v24.0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verificar segredos em modo de publicação
+        if: github.event_name == 'schedule' || inputs.publicar == true
+        run: |
+          test -n "$INSTAGRAM_ACCESS_TOKEN" || { echo "::error::Secret INSTAGRAM_ACCESS_TOKEN ausente"; exit 1; }
+          test -n "$INSTAGRAM_USER_ID" || { echo "::error::Secret INSTAGRAM_USER_ID ausente"; exit 1; }
+      - name: Instalar ferramentas de renderização
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install --disable-pip-version-check "Pillow>=10,<13"
+      - name: Gerar vídeo com dados da Open-Meteo
+        run: python render_reel.py --out output/previsaobsb.mp4 --caption output/legenda.txt
+      - name: Validar dimensões e duração
+        run: |
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 output/previsaobsb.mp4)" = "1080"
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 output/previsaobsb.mp4)" = "1920"
+          test -s output/legenda.txt
+      - name: Disponibilizar MP4 e legenda
+        uses: actions/upload-artifact@v4
+        with:
+          name: previsaobsb-reel-${{ github.run_id }}
+          path: |
+            output/previsaobsb.mp4
+            output/legenda.txt
+          retention-days: 3
+      - name: Publicar no Instagram via Graph API
+        if: github.event_name == 'schedule' || inputs.publicar == true
+        env:
+          SLOT: ${{ github.event.schedule || 'manual' }}
+        run: |
+          DATA=$(TZ=America/Sao_Paulo date +%F)
+          if [ "$SLOT" = "7 9 * * *" ]; then TURNO="manha"; elif [ "$SLOT" = "7 21 * * *" ]; then TURNO="tarde"; else TURNO="manual-${{ github.run_id }}"; fi
+          python publicar_reel.py --video output/previsaobsb.mp4 --caption output/legenda.txt --slot "$DATA-$TURNO"
+      - name: Preservar comprovante e idempotência
+        if: (github.event_name == 'schedule' || inputs.publicar == true) && success()
+        run: |
+          if [ -f publicados.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add publicados.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Registrar Reel publicado no Instagram"
+              git push
+            fi
+          fi
