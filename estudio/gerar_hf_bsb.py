@@ -54,6 +54,11 @@ def coletar(dia):
             "prob_chuva":round(prob),"vento_kmh":round(vento)})
     return resultado
 
+def fmt_mm(v):
+    # Decimal brasileiro: 31.7 -> "31,7"; 12.0 -> "12"
+    s=f"{round(float(v),1):g}"
+    return s.replace(".",",")
+
 def batidas(cidades,amanha):
     quando="amanhã" if amanha else "hoje"
     mais_quente=max(cidades,key=lambda x:x["max"])
@@ -65,8 +70,8 @@ def batidas(cidades,amanha):
        "tipo":"resumo","dados":{"titulo":"TEMPERATURAS NO DF","cidades":cidades}}
     arr=[primeira,quadro]
     if maior_chuva["chuva_mm"] >= 2:
-        arr.append({"fala":f"Maior volume previsto entre as localidades destacadas: {maior_chuva['nome']}, até {maior_chuva['chuva_mm']:g} milímetros de chuva.",
-          "tipo":"alerta","dados":{"titulo":"ATENÇÃO À CHUVA","detalhe":f"{maior_chuva['nome']} • até {maior_chuva['chuva_mm']:g} mm"}})
+        arr.append({"fala":f"Maior volume previsto entre as localidades destacadas: {maior_chuva['nome']}, até {fmt_mm(maior_chuva['chuva_mm'])} milímetros de chuva.",
+          "tipo":"alerta","dados":{"titulo":"ATENÇÃO À CHUVA","detalhe":f"{maior_chuva['nome']} • até {fmt_mm(maior_chuva['chuva_mm'])} mm"}})
     arr.append({"fala":f"Manda pra quem vai sair no Distrito Federal {quando}.",
                 "tipo":"cta","dados":{"chamada":"MANDA PRA QUEM VAI SAIR","sub":"@previsaobsb"}})
     return arr
