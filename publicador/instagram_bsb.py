@@ -35,7 +35,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 ESTADO = ROOT / "data" / "publicacoes.json"
 BRT = timezone(timedelta(hours=-3))
-VERSAO_PADRAO = "v26.0"   # mesma versão validada em produção no Previsão RJ
+VERSAO_PADRAO = "v27.0"   # versão atual da Graph API (validada no @previsaobsb em 10/11/2026)
 
 
 class Bloqueio(RuntimeError):
