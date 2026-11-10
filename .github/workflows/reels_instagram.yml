@@ -1,5 +1,11 @@
 name: Previsão BSB — Reels Instagram
 on:
+  push:
+    paths:
+      - "render_reel.py"
+      - "boletim.py"
+      - "publicar_reel.py"
+      - ".github/workflows/reels_instagram.yml"
   schedule:
     # 06:07 e 18:07, horário fixo de Brasília (UTC-3)
     - cron: "7 9 * * *"
