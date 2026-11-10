@@ -549,8 +549,6 @@ html, body {{ width: 1080px; height: 1920px; overflow: hidden; background: {NAVY
  <div id="glitch" class="clip" data-start="0" data-duration="{dur}" data-track-index="11"></div>
 
  <audio id="aud-voz" src="assets/audio/narracao.wav" data-start="0" data-duration="{dur}" data-track-index="20" data-volume="1"></audio>
- <audio id="aud-trilha" src="assets/audio/trilha.wav" data-start="0" data-duration="{dur}" data-track-index="21" data-volume="0.14"></audio>
- <audio id="aud-whoosh" src="assets/audio/whoosh.wav" data-start="0" data-duration="{dur}" data-track-index="22" data-volume="0.32"></audio>
 </div>
 
 <script>
