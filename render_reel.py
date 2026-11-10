@@ -79,7 +79,7 @@ def main():
                 "-vf", "scale=1080:1920,format=yuv420p",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-r", "25",
                 "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
-                "-shortest", "-t", "16", "-movflags", "+faststart", video)
+                "-shortest", "-movflags", "+faststart", video)
             segments.append(video)
         listing = tmp / "concat.txt"
         listing.write_text("".join(f"file '{p}'\n" for p in segments))
