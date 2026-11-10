@@ -122,7 +122,7 @@ def apresentador_svg(nome):
   {braco["E"]}
   {rect(0, -.38, 1.55, 1.65, .32, camisa)}
   <path d="M{X(-.26):.1f} {Y(.42):.1f} L{X(0):.1f} {Y(.12):.1f} L{X(.26):.1f} {Y(.42):.1f}" fill="none" stroke="{INK}" stroke-width="7" stroke-linejoin="round"/>
-  <text x="{X(.36):.1f}" y="{Y(-.24):.1f}" text-anchor="middle" font-family="BarlowC" font-size="44" fill="{c["logo"]}">RJ</text>
+  <text x="{X(.36):.1f}" y="{Y(-.24):.1f}" text-anchor="middle" font-family="BarlowC" font-size="44" fill="{c["logo"]}">BSB</text>
   {braco["D"]}
  </g>
  <g id="ap-cabeca">
@@ -156,68 +156,55 @@ def nuvem_rj_svg(tam=220):
 
 # ------------------------------------------------------------- cenário ---
 def paisagem(ceu, uid, com_sol=True):
-    """Telão com a paisagem do Rio: Corcovado, Pão de Açúcar com o bondinho,
-    prédios da orla, o mar e o calçadão de ondas. O céu é o tempo do dia."""
-    topo, meio, morro, mar = CEUS.get(ceu, CEUS["sol"])
+    """Cenário de Brasília no mesmo compositor HyperFrames do RJ.
+    Congresso Nacional, cúpulas, Catedral e Esplanada, com meteorologia animada.
+    """
+    topo, meio, _, _ = CEUS.get(ceu, CEUS["sol"])
     rng = random.Random(sum(map(ord, uid)) * 7 + 11)
-    ncl = {"sol": 3, "calor": 2, "nublado": 6, "chuva": 7, "tempestade": 7, "frio": 4}.get(ceu, 3)
-    cor_n = {"chuva": "#b7c1cb", "tempestade": "#6d7686", "nublado": "#eef1f4"}.get(ceu, "#ffffff")
+    cor_n = "#bdc5ce" if ceu in ("chuva", "tempestade") else "#ffffff"
     nuvens = []
-    for _ in range(ncl):
-        x, y, s = rng.randint(-80, 900), rng.randint(230, 560), rng.uniform(0.8, 1.5)
-        nuvens.append(
-            f'<g class="{uid}-nuvem" data-dx="{rng.choice([-1, 1]) * rng.randint(40, 90)}" '
-            f'transform="translate({x},{y}) scale({s:.2f})">'
-            f'<ellipse cx="60" cy="40" rx="60" ry="34" fill="{cor_n}"/>'
-            f'<ellipse cx="120" cy="30" rx="56" ry="42" fill="{cor_n}"/>'
-            f'<ellipse cx="170" cy="46" rx="44" ry="28" fill="{cor_n}"/>'
-            f'<rect x="20" y="44" width="190" height="30" rx="15" fill="{cor_n}"/></g>')
-    sol = ""
+    for i in range(7 if ceu in ("chuva", "nublado") else 4):
+        x, y = rng.randint(-100, 920), rng.randint(170, 510)
+        v = rng.randint(35, 95)
+        nuvens.append(f'<g class="{uid}-nuvem" data-dx="{v}" transform="translate({x},{y})">'
+                      f'<ellipse cx="70" cy="30" rx="75" ry="31" fill="{cor_n}" opacity=".83"/>'
+                      f'<ellipse cx="125" cy="17" rx="58" ry="40" fill="{cor_n}" opacity=".83"/>'
+                      f'<rect x="20" y="30" width="170" height="25" rx="13" fill="{cor_n}"/></g>')
+    sol = ''
     if com_sol and ceu in ("sol", "calor", "frio"):
-        raios = "".join(f'<rect x="-8" y="-190" width="16" height="54" rx="8" fill="#ffd34e" '
-                        f'transform="rotate({a})"/>' for a in range(0, 360, 30))
-        sol = (f'<g transform="translate(850,400)"><g class="{uid}-raios">{raios}</g>'
-               f'<circle r="118" fill="#ffd34e" stroke="#e8a93a" stroke-width="8"/></g>')
-    chuva = ""
-    if ceu in ("chuva", "tempestade"):
-        linhas = []
-        for _ in range(70):
-            x, y = rng.randint(-100, 1100), rng.randint(0, 1500)
-            linhas.append(f'<line x1="{x}" y1="{y}" x2="{x - 14}" y2="{y + 52}" stroke="#dbe9f5" '
-                          f'stroke-width="4" stroke-linecap="round" opacity="0.75"/>')
-        chuva = f'<g class="{uid}-chuva">{"".join(linhas)}</g>'
-    predios = []
-    x = -10
-    while x < 1090:
-        w, h = rng.randint(60, 110), rng.randint(90, 230)
-        cor = rng.choice(["#e9e2d3", "#d9d3c4", "#f2ede2", "#cfd6d8"])
-        jan = "".join(f'<rect x="{x + 12 + j * 22}" y="{1290 - h + 16 + k * 30}" width="12" height="16" fill="#8fa9b8"/>'
-                      for k in range(max(1, h // 30 - 1)) for j in range(max(1, (w - 16) // 22)))
-        predios.append(f'<rect x="{x}" y="{1290 - h}" width="{w}" height="{h + 30}" fill="{cor}" stroke="{PT}" stroke-width="4"/>{jan}')
-        x += w + rng.randint(-4, 6)
-    onda = "M0 1395 " + " ".join(f"Q{45 + 90 * k} {1375 if k % 2 == 0 else 1415} {90 + 90 * k} 1395" for k in range(13))
-    return f'''
+        raios = ''.join(f'<rect x="-8" y="-185" width="16" height="52" rx="6" fill="#ffd34e" transform="rotate({ang})"/>'
+                        for ang in range(0,360,30))
+        sol = f'<g transform="translate(860,340)"><g class="{uid}-raios">{raios}</g><circle r="108" fill="#ffd34e"/></g>'
+    chuva = ''
+    if ceu in ("chuva","tempestade"):
+        gotas = ''.join(f'<line x1="{rng.randint(0,1100)}" y1="{rng.randint(200,1350)}" '
+                        f'x2="{rng.randint(0,1100)}" y2="{rng.randint(450,1650)}" stroke="#e4f0fc" stroke-width="3" opacity=".6"/>'
+                        for _ in range(40))
+        chuva = f'<g class="{uid}-chuva">{gotas}</g>'
+    # Base gráfica estilizada da Esplanada, sem imagens externas.
+    return f"""
 <svg class="paisagem" viewBox="0 0 1080 1920" width="1080" height="1920" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
- <defs><linearGradient id="{uid}-g" x1="0" y1="0" x2="0" y2="1">
-  <stop offset="0" stop-color="{topo}"/><stop offset="0.6" stop-color="{meio}"/></linearGradient></defs>
- <rect width="1080" height="1920" fill="url(#{uid}-g)"/>
- {sol}
- {"".join(nuvens)}
- <path d="M-20 1180 L60 1080 C110 1010 150 930 200 900 L226 892 C260 920 300 1010 360 1080 L470 1180 Z" fill="{morro}" stroke="{PT}" stroke-width="5"/>
- <g transform="translate(213,846)" fill="{PT}"><rect x="-6" y="0" width="12" height="48"/><rect x="-30" y="10" width="60" height="9"/></g>
- <path d="M640 1180 C660 1110 700 1080 760 1075 C800 1078 820 1110 832 1150 L850 1180 Z" fill="{morro}" stroke="{PT}" stroke-width="5"/>
- <path d="M840 1180 C850 1050 880 930 950 905 C1010 900 1040 990 1060 1180 Z" fill="{morro}" stroke="{PT}" stroke-width="5"/>
- <path d="M770 1078 L948 908" stroke="{PT}" stroke-width="3"/>
- <g class="{uid}-bonde"><rect x="842" y="985" width="30" height="20" rx="4" fill="{RED}" stroke="{PT}" stroke-width="3"/></g>
- <rect x="0" y="1170" width="1080" height="140" fill="{mar}"/>
- <path class="{uid}-mar" d="M-60 1205 q30 -12 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0" fill="none" stroke="#e8f6fb" stroke-width="5" opacity="0.8"/>
- {"".join(predios)}
- <rect x="0" y="1310" width="1080" height="610" fill="#f7f3ea"/>
- <path d="{onda}" fill="none" stroke="{PT}" stroke-width="22"/>
- <path d="{onda.replace("1395", "1475").replace("1375", "1455").replace("1415", "1495")}" fill="none" stroke="{PT}" stroke-width="22"/>
+ <defs><linearGradient id="{uid}-ceu" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="{topo}"/><stop offset=".78" stop-color="{meio}"/></linearGradient></defs>
+ <rect width="1080" height="1920" fill="url(#{uid}-ceu)"/>
+ {sol}{"".join(nuvens)}
+ <rect x="0" y="1210" width="1080" height="710" fill="#c9bd91"/>
+ <path d="M0 1270L1080 1270L1080 1410L0 1410Z" fill="#b4bf9e"/>
+ <path d="M0 1470L1080 1470L1080 1580L0 1580Z" fill="#758e68"/>
+ <!-- Congresso: torres e duas cúpulas -->
+ <rect x="420" y="820" width="85" height="480" fill="#e3e7e7" stroke="#18344c" stroke-width="5"/>
+ <rect x="530" y="820" width="85" height="480" fill="#e3e7e7" stroke="#18344c" stroke-width="5"/>
+ <rect x="450" y="875" width="11" height="360" fill="#7a9baa"/>
+ <rect x="560" y="875" width="11" height="360" fill="#7a9baa"/>
+ <rect x="200" y="1290" width="660" height="75" fill="#e8e5d7" stroke="#18344c" stroke-width="5"/>
+ <path d="M220 1290 Q295 1100 375 1290Z" fill="#e5e8e5" stroke="#18344c" stroke-width="5"/>
+ <path d="M645 1290 Q740 1390 835 1290Z" fill="#d4dce0" stroke="#18344c" stroke-width="5"/>
+ <!-- Catedral: arcos estilizados -->
+ <path d="M40 1320 Q103 1000 164 1320 M60 1320 Q105 1050 148 1320 M78 1320 Q105 1100 130 1320" fill="none" stroke="#f3f4f0" stroke-width="18"/>
+ <rect x="0" y="1370" width="1080" height="30" fill="#607a89"/>
+ <path d="M0 1640 L1080 1585 L1080 1920 L0 1920Z" fill="#e5d8ba"/>
  {chuva}
-</svg>'''
-
+</svg>"""
 
 # --------------------------------------------------------------- cenas ---
 def _scene(cena, p, bg, miolo):
@@ -353,7 +340,7 @@ def cena_cta(p, cena, bat):
  <div class="cta-bloco" id="cta-b1">
   <div class="cta-mascote">{nuvem_rj_svg(230)}</div>
   <div class="cta-chamada" style="font-size:{100 if len(chamada) <= 26 else 82}px">{esc(chamada)}</div>
-  <div class="cta-sub">{esc(d.get("sub", "Previsão todo dia às 6h e às 18h"))}</div>
+  <div class="cta-sub">{esc(d.get("sub", "Previsão do DF às 6h e às 18h"))}</div>
  </div>'''
     return _scene(cena, p, TEAL, miolo)
 
@@ -432,7 +419,7 @@ def compor(p):
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=1080, height=1920" />
-<title>{esc(ap["nome"].title())} — Previsão RJ — HyperFrames</title>
+<title>{esc(ap["nome"].title())} — Previsão BSB — HyperFrames</title>
 <script src="assets/vendor/gsap.min.js"></script>
 <style>
 @font-face {{ font-family: "BarlowC"; src: url("assets/fonts/BarlowCondensed-ExtraBold.woff2") format("woff2"); font-weight: 800; }}
