@@ -292,7 +292,7 @@ def cena_quadro(p, cena, bat):
    <div class="qd-barra"></div>
    <div class="qd-main"><div class="qd-cidade">{esc(c["nome"].upper())}</div>
    <div class="qd-cels"><span class="qd-min">{metric(c, "min", "°")}</span><span class="qd-max">{metric(c, "max", "°")}</span></div></div>
-   <div class="qd-metrics"><span>CHUVA <b>{metric(c, "prob_chuva", "%")}</b></span><span>VOLUME <b>{metric(c, "chuva_mm", " mm", 1)}</b></span><span>RAJADAS <b>{metric(c, "vento_kmh", " km/h")}</b></span></div>
+   <div class="qd-metrics"><span>UMIDADE <b>{metric(c, "umidade", "%")}</b></span><span>VOLUME <b>{metric(c, "chuva_mm", " mm", 1)}</b></span><span>VENTO <b>{metric(c, "vento_kmh", " km/h")}</b></span></div>
   </div>''')
     miolo = f'''{paisagem(p["ceu"], "qd")}
  <div class="qd-veu"></div>
@@ -365,14 +365,24 @@ def legenda_html(p):
     for bi, b in enumerate(p["batidas"]):
         if b["tipo"] == "resumo":
             continue
-        pag = []
+        # Frase a frase; cada frase em páginas equilibradas de até 4 palavras,
+        # para nunca sobrar uma palavra sozinha ("HOJE.") no fim.
+        frases, atual = [], []
         for w in (w for w in p["palavras"] if w["b"] == bi):
-            pag.append(w)
-            if len(pag) == 4 or w["w"][-1] in ".!?":
-                paginas.append(pag)
-                pag = []
-        if pag:
-            paginas.append(pag)
+            atual.append(w)
+            if w["w"][-1] in ".!?":
+                frases.append(atual)
+                atual = []
+        if atual:
+            frases.append(atual)
+        for fr in frases:
+            k = -(-len(fr) // 4)
+            base, extra = divmod(len(fr), k)
+            i = 0
+            for j in range(k):
+                n = base + (1 if j < extra else 0)
+                paginas.append(fr[i:i + n])
+                i += n
     out = []
     for k, pg in enumerate(paginas):
         palavras = "".join(
