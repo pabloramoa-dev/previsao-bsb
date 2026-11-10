@@ -1,5 +1,11 @@
 name: Piloto HyperFrames BSB — Bira e Bia
 on:
+  # Reutilizado pelos workflows reel_manha.yml / reel_noite.yml (render do Reel diario).
+  workflow_call:
+    inputs:
+      personagem:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       personagem:
@@ -20,7 +26,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: bsb-piloto-hf-${{ github.ref }}
+  group: bsb-render-${{ github.run_id }}
   cancel-in-progress: false
 jobs:
   render:
