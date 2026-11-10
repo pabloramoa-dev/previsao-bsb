@@ -162,24 +162,50 @@ def checar_duplicidade(c: dict, chave: str, legenda: str, estado: dict) -> None:
 
 # --------------------------------------------------------------- publicar
 
-def upload_resumivel(c: dict, video: Path, legenda: str, capa_ms: int) -> str:
+# Variações de cabeçalho do rupload. A 1ª é a da documentação (curl
+# --data-binary); as outras cobrem diferenças já vistas entre o login
+# unificado (graph.facebook.com) e o login do Instagram. Cada tentativa usa um
+# container novo; container não publicado expira sozinho em 24 h e não gasta
+# cota de publicação.
+VARIANTES_UPLOAD = [
+    ("OAuth", None),
+    ("OAuth", "application/octet-stream"),
+    ("Bearer", None),
+]
+
+
+def _criar_container(c: dict, legenda: str, capa_ms: int) -> tuple[str, str]:
     corpo = {"media_type": "REELS", "upload_type": "resumable",
              "caption": legenda, "share_to_feed": "true"}
     if capa_ms > 0:
         corpo["thumb_offset"] = str(capa_ms)
     cont = _req("POST", f"{c['base']}/{c['user']}/media", c, data=corpo)
-    cid, uri = cont["id"], cont.get("uri")
-    if not uri:
-        uri = f"https://rupload.facebook.com/ig-api-upload/{c['versao']}/{cid}"
-    tamanho = video.stat().st_size
-    with video.open("rb") as fh:
-        r = requests.post(uri, data=fh, timeout=600, headers={
-            "Authorization": f"OAuth {c['token']}", "offset": "0",
-            "file_size": str(tamanho), "Content-Type": "application/octet-stream"})
-    if r.status_code >= 400 or not r.json().get("success", True):
-        raise RuntimeError(f"Upload resumível falhou: HTTP {r.status_code} {r.text[:300]}")
-    print(f"upload: {tamanho/1e6:.1f} MB enviados ao container {cid}")
-    return cid
+    cid = cont["id"]
+    uri = cont.get("uri") or f"https://rupload.facebook.com/ig-api-upload/{c['versao']}/{cid}"
+    return cid, uri
+
+
+def upload_resumivel(c: dict, video: Path, legenda: str, capa_ms: int) -> str:
+    dados = video.read_bytes()
+    erros = []
+    for esquema, tipo in VARIANTES_UPLOAD:
+        cid, uri = _criar_container(c, legenda, capa_ms)
+        cab = {"Authorization": f"{esquema} {c['token']}", "offset": "0",
+               "file_size": str(len(dados))}
+        if tipo:
+            cab["Content-Type"] = tipo
+        r = requests.post(uri, data=dados, headers=cab, timeout=600)
+        try:
+            ok = r.status_code < 400 and r.json().get("success", True)
+        except ValueError:
+            ok = False
+        rotulo = f"{esquema}/{tipo or 'sem content-type'}"
+        if ok:
+            print(f"upload: {len(dados)/1e6:.1f} MB enviados ao container {cid} ({rotulo})")
+            return cid
+        erros.append(f"{rotulo}: HTTP {r.status_code} {r.text[:200]}")
+        print(f"upload recusado ({rotulo}): HTTP {r.status_code}")
+    raise RuntimeError("Upload resumível falhou em todas as variações: " + " | ".join(erros))
 
 
 def aguardar_container(c: dict, cid: str, limite_s: int = 600) -> None:
