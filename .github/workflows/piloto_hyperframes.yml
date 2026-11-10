@@ -30,18 +30,18 @@ concurrency:
   cancel-in-progress: false
 jobs:
   render:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       HYPERFRAMES_NO_TELEMETRY: "1"
       DO_NOT_TRACK: "1"
       PYTHONUNBUFFERED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
@@ -70,6 +70,18 @@ jobs:
         run: |
           if [ "$BSB_PERSONAGEM" = "bia" ]; then OFFSET=1; else OFFSET=0; fi
           python estudio/gerar_hf_bsb.py --personagem "$BSB_PERSONAGEM" --day-offset "$OFFSET" --out output/REEL_BSB.mp4
+      - name: Comprimir para o Instagram (H.264 CRF 21, AAC 128k, faststart)
+        run: |
+          set -euo pipefail
+          ANTES=$(stat -c %s output/REEL_BSB.mp4)
+          ffmpeg -y -v error -i output/REEL_BSB.mp4 -map 0:v:0 -map 0:a:0 \
+            -c:v libx264 -preset slow -crf 21 -maxrate 8M -bufsize 16M \
+            -profile:v high -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 \
+            -movflags +faststart output/REEL_BSB_ig.mp4
+          mv output/REEL_BSB_ig.mp4 output/REEL_BSB.mp4
+          DEPOIS=$(stat -c %s output/REEL_BSB.mp4)
+          echo "MP4: $((ANTES/1048576)) MB -> $((DEPOIS/1048576)) MB"
+          echo "- MP4 comprimido: $((ANTES/1048576)) MB -> $((DEPOIS/1048576)) MB" >> "$GITHUB_STEP_SUMMARY"
       - name: QA obrigatório
         run: |
           test -s output/REEL_BSB.mp4
@@ -79,7 +91,7 @@ jobs:
           test -s output/LEGENDA.txt
           test -s output/CAPA.jpg
       - name: Guardar MP4, capa, previsão, roteiro e timeline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: PILOTO-HYPERFRAMES-BSB-${{ github.run_id }}
           path: |
