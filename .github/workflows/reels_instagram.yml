@@ -35,7 +35,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Verificar segredos em modo de publicação
-        if: github.event_name == 'schedule' || inputs.publicar == true
+        if: (github.event_name == 'schedule' && vars.BSB_AUTO_PUBLISH == 'true') || inputs.publicar == true
         run: |
           test -n "$INSTAGRAM_ACCESS_TOKEN" || { echo "::error::Secret INSTAGRAM_ACCESS_TOKEN ausente"; exit 1; }
           test -n "$INSTAGRAM_USER_ID" || { echo "::error::Secret INSTAGRAM_USER_ID ausente"; exit 1; }
@@ -45,7 +45,12 @@ jobs:
           sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
           python -m pip install --disable-pip-version-check "Pillow>=10,<13"
       - name: Gerar vídeo com dados da Open-Meteo
-        run: python render_reel.py --out output/previsaobsb.mp4 --caption output/legenda.txt
+        env:
+          SLOT: ${{ github.event.schedule || 'manual' }}
+        run: |
+          DIA=0
+          if [ "$SLOT" = "7 21 * * *" ]; then DIA=1; fi
+          python render_reel.py --day-offset "$DIA" --out output/previsaobsb.mp4 --caption output/legenda.txt
       - name: Validar dimensões e duração
         run: |
           test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 output/previsaobsb.mp4)" = "1080"
@@ -60,7 +65,7 @@ jobs:
             output/legenda.txt
           retention-days: 3
       - name: Publicar no Instagram via Graph API
-        if: github.event_name == 'schedule' || inputs.publicar == true
+        if: (github.event_name == 'schedule' && vars.BSB_AUTO_PUBLISH == 'true') || inputs.publicar == true
         env:
           SLOT: ${{ github.event.schedule || 'manual' }}
         run: |
@@ -68,7 +73,7 @@ jobs:
           if [ "$SLOT" = "7 9 * * *" ]; then TURNO="manha"; elif [ "$SLOT" = "7 21 * * *" ]; then TURNO="tarde"; else TURNO="manual-${{ github.run_id }}"; fi
           python publicar_reel.py --video output/previsaobsb.mp4 --caption output/legenda.txt --slot "$DATA-$TURNO"
       - name: Preservar comprovante e idempotência
-        if: (github.event_name == 'schedule' || inputs.publicar == true) && success()
+        if: ((github.event_name == 'schedule' && vars.BSB_AUTO_PUBLISH == 'true') || inputs.publicar == true) && success()
         run: |
           if [ -f publicados.json ]; then
             git config user.name "github-actions[bot]"
