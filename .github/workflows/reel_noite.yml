@@ -151,19 +151,28 @@ jobs:
         run: |
           set -euo pipefail
           D="qa/${{ github.run_id }}-${TURNO}"
-          mkdir -p "/tmp/$D"
+          F=/tmp/frames; WT=/tmp/qawt
+          mkdir -p "$F"
           DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 output/REEL_BSB.mp4)
           for f in 0.08 0.3 0.55 0.8 0.97; do
             T=$(python3 -c "print(round($DUR*$f,2))")
-            ffmpeg -v error -ss "$T" -i output/REEL_BSB.mp4 -frames:v 1 -vf scale=540:-1 "/tmp/$D/t$T.jpg"
+            ffmpeg -v error -ss "$T" -i output/REEL_BSB.mp4 -frames:v 1 -vf scale=540:-1 "$F/t$T.jpg"
           done
-          cp output/CAPA.jpg output/LEGENDA.txt output/work_bsb/roteiro.txt "/tmp/$D/" || true
+          cp output/CAPA.jpg output/LEGENDA.txt output/work_bsb/roteiro.txt "$F/"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin qa || true
-          if git rev-parse -q --verify origin/qa >/dev/null; then git worktree add /tmp/qa origin/qa; else git worktree add --detach /tmp/qa && (cd /tmp/qa && git checkout --orphan qa-new && git rm -rfq .); fi
-          mkdir -p "/tmp/qa/$D" && cp /tmp/$D/* "/tmp/qa/$D/"
-          cd /tmp/qa && git add qa && git commit -qm "QA ${{ github.run_id }} ${TURNO}" && git push origin HEAD:qa
+          if git fetch -q origin qa; then
+            git worktree add -q "$WT" FETCH_HEAD
+          else
+            git worktree add -q --detach "$WT"
+            git -C "$WT" checkout -q --orphan qa-novo
+            git -C "$WT" rm -rfq .
+          fi
+          mkdir -p "$WT/$D"
+          cp "$F"/* "$WT/$D/"
+          git -C "$WT" add qa
+          git -C "$WT" commit -qm "QA ${{ github.run_id }} ${TURNO}"
+          git -C "$WT" push -q origin HEAD:refs/heads/qa
           echo "Quadros: https://github.com/${{ github.repository }}/tree/qa/$D" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Ensaio das travas (sem publicar)
