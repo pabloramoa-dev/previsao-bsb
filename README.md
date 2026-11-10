@@ -7,9 +7,9 @@
 | Manhã | `reel_manha.yml` | Bira | hoje | cron-job.org 05:35 (`bsb_bira`) | 05:35 e 05:50 | 06:00 |
 | Noite | `reel_noite.yml` | Bia | amanhã | cron-job.org 17:35 (`bsb_bia`) | 17:35 e 17:50 | 18:00 |
 
-Fluxo: Open-Meteo → roteiro → Kokoro → HyperFrames (`piloto_hyperframes.yml`, reutilizado) → QA (1080×1920, áudio, data, personagem) → upload resumível para a Meta (sem URL pública; o repo é privado) → permalink gravado em `data/publicacoes.json`.
+Fluxo: MET Norway (gratuita, CC BY 4.0, crédito na legenda; quadro com umidade e vento, pois a MET não dá probabilidade nem rajadas para o Brasil) → roteiro → Kokoro → HyperFrames (`piloto_hyperframes.yml`, reutilizado) → compressão H.264 CRF 21 → QA (1080×1920, áudio, data, personagem) → upload resumível para a Meta (sem URL pública; o repo é privado) → permalink gravado em `data/publicacoes.json`.
 
-**Credenciais (só nomes):** Secrets `IG_ACCESS_TOKEN`, `IG_USER_ID`. Variables `META_GRAPH_VERSION` (v26.0), `EXPECTED_IG_USERNAME` (previsaobsb), `BSB_AUTO_PUBLISH` (chave geral: diferente de `true` = nada automático publica). App da Meta: "Previsao BSB bot" (BM01, login unificado).
+**Credenciais (só nomes):** Secrets `IG_ACCESS_TOKEN`, `IG_USER_ID`. Variables `META_GRAPH_VERSION` (v27.0), `EXPECTED_IG_USERNAME` (previsaobsb), `BSB_AUTO_PUBLISH` (chave geral: diferente de `true` = nada automático publica). App da Meta: "Previsao BSB bot" (BM01, login unificado).
 
 **Travas do publicador (`publicador/instagram_bsb.py`):** conta devolvida pela Meta tem de ser @previsaobsb com o mesmo ID; um Reel por turno; legenda repetida bloqueia; Reel com menos de 2 h no perfil bloqueia.
 
