@@ -185,6 +185,9 @@ jobs:
 
       - name: Ensaio das travas (sem publicar)
         if: needs.trava.outputs.publicar != 'true'
+        # Ensaio: uma trava acionada (turno já publicado, Reel recente) é
+        # informação, não falha do render. Fica registrada no resumo.
+        continue-on-error: true
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
