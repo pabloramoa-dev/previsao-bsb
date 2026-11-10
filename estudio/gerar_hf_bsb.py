@@ -18,7 +18,7 @@ ROOT=Path(__file__).resolve().parents[1]
 HF=ROOT/"hyperframes"
 sys.path.insert(0,str(HF))
 sys.path.insert(0,str(ROOT))
-from compor import compor
+from compor import APRESENTADOR, compor
 from estudio.amplitude import gerar_cues
 from boletim import REGIOES
 
@@ -108,6 +108,8 @@ def main():
     ap.add_argument("--out",default="output/REEL_BSB.mp4")
     ap.add_argument("--so-html",action="store_true")
     args=ap.parse_args()
+    if APRESENTADOR.get("bia", {}).get("nome") != "BIA":
+        raise RuntimeError("O nome visual da apresentadora deve ser somente BIA")
     hoje=datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     dia=hoje+timedelta(days=args.day_offset)
     cidades=coletar(dia)
