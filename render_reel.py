@@ -1,6 +1,6 @@
 """Gera Reel vertical com dados reais do coletor regional existente."""
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import subprocess
 import tempfile
@@ -51,8 +51,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="output/previsaobsb.mp4")
     parser.add_argument("--caption", default="output/legenda.txt")
+    parser.add_argument("--day-offset", type=int, choices=[0, 1], default=0)
     args = parser.parse_args()
-    today = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
+    today = datetime.now(ZoneInfo("America/Sao_Paulo")).date() + timedelta(days=args.day_offset)
     lines = boletim(today).splitlines()
     areas = [line for line in lines if " · " in line]
     if len(areas) != 5:
@@ -60,7 +61,7 @@ def main():
     target = Path(args.out)
     target.parent.mkdir(parents=True, exist_ok=True)
     Path(args.caption).parent.mkdir(parents=True, exist_ok=True)
-    captions = [f"Previsão do Distrito Federal • {today:%d/%m/%Y}"] + areas + [
+    captions = [f"Previsão do Distrito Federal para {today:%d/%m/%Y}"] + areas + [
         "Manda pra quem precisa saber a previsão de hoje! #PrevisaoBSB #Brasilia #DistritoFederal #Tempo"]
     Path(args.caption).write_text("\n".join(captions), encoding="utf-8")
     with tempfile.TemporaryDirectory() as tmp:
