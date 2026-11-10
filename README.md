@@ -1,3 +1,24 @@
+# Previsão BSB — operação atual (10/11/2026)
+
+**Produção ativa:** Reels automáticos no @previsaobsb pelo motor HyperFrames + Kokoro (Bira e Bia).
+
+| Turno | Workflow | Apresentador | Previsão | Disparo principal | Reserva (GitHub cron) | Publica |
+|---|---|---|---|---|---|---|
+| Manhã | `reel_manha.yml` | Bira | hoje | cron-job.org 05:35 (`bsb_bira`) | 05:35 e 05:50 | 06:00 |
+| Noite | `reel_noite.yml` | Bia | amanhã | cron-job.org 17:35 (`bsb_bia`) | 17:35 e 17:50 | 18:00 |
+
+Fluxo: Open-Meteo → roteiro → Kokoro → HyperFrames (`piloto_hyperframes.yml`, reutilizado) → QA (1080×1920, áudio, data, personagem) → upload resumível para a Meta (sem URL pública; o repo é privado) → permalink gravado em `data/publicacoes.json`.
+
+**Credenciais (só nomes):** Secrets `IG_ACCESS_TOKEN`, `IG_USER_ID`. Variables `META_GRAPH_VERSION` (v26.0), `EXPECTED_IG_USERNAME` (previsaobsb), `BSB_AUTO_PUBLISH` (chave geral: diferente de `true` = nada automático publica). App da Meta: "Previsao BSB bot" (BM01, login unificado).
+
+**Travas do publicador (`publicador/instagram_bsb.py`):** conta devolvida pela Meta tem de ser @previsaobsb com o mesmo ID; um Reel por turno; legenda repetida bloqueia; Reel com menos de 2 h no perfil bloqueia.
+
+**Outros workflows:** `verificar_instagram.yml` (confere token/conta toda segunda, sem publicar) · `publicar_artefato.yml` (recuperação: publica o MP4 de uma execução anterior sem renderizar de novo). Ensaios manuais (sem publicar) gravam quadros de revisão no branch `qa`.
+
+**Desativados:** `reels_instagram.yml` (legado espeak-ng/imagens estáticas). Não reativar. Os nomes `INSTAGRAM_ACCESS_TOKEN`/`INSTAGRAM_USER_ID` do texto abaixo são do legado.
+
+---
+
 # Previsão BSB — HyperFrames e Kokoro
 
 **Pipeline atual de piloto (sem publicação):** [Piloto HyperFrames BSB — Bira e Bia](https://github.com/pabloramoa-dev/previsao-bsb/actions/workflows/piloto_hyperframes.yml).
