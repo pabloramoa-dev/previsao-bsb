@@ -57,7 +57,7 @@ def esc(s):
 
 # ------------------------------------------------------- Bira / Bia (SVG) ---
 def apresentador_svg(nome):
-    """Bira do Tempo / Bia da Orla redesenhados em SVG a partir do rj_cast.py
+    """Bira do Tempo / Bia redesenhados em SVG a partir do rj_cast.py
     (Manim): 1 unidade = 150 px, cabeça centrada em (260, 230)."""
     c = APRESENTADOR[nome]
     bia = nome == 'bia'
