@@ -116,11 +116,18 @@ jobs:
           name: PILOTO-HYPERFRAMES-BSB-${{ github.run_id }}
           path: output
       - name: QA do MP4 (formato, áudio, duração, data)
+        timeout-minutes: 10
         env:
           DATA: ${{ needs.trava.outputs.data }}
         run: |
           set -euo pipefail
-          sudo apt-get install -y -qq ffmpeg >/dev/null
+          if ! command -v ffmpeg >/dev/null; then
+            for i in 1 2 3; do
+              timeout 240 sudo apt-get update -qq && timeout 240 sudo apt-get install -y -qq --no-install-recommends ffmpeg && break
+              sleep 10
+            done
+          fi
+          ffmpeg -version | head -1
           python3 - <<'PY'
           import json, os, subprocess, sys
           v = 'output/REEL_BSB.mp4'
@@ -147,6 +154,7 @@ jobs:
           PY
 
       - name: Quadros de revisão (só em ensaio manual) -> branch qa
+        timeout-minutes: 5
         if: github.event_name == 'workflow_dispatch' && needs.trava.outputs.publicar != 'true'
         run: |
           set -euo pipefail
