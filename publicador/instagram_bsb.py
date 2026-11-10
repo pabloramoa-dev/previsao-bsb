@@ -113,14 +113,22 @@ def diagnostico() -> dict:
             out["permissoes"] = f"indisponível (token de usuário do sistema?): {e}"
         app_id = os.environ.get("META_APP_ID", "").strip()
         app_secret = os.environ.get("META_APP_SECRET", "").strip()
-        if app_id and app_secret:
+        # Sem app secret, a Meta aceita o próprio token como access_token do
+        # debug_token (token de usuário/usuário do sistema do mesmo app).
+        quem = f"{app_id}|{app_secret}" if app_id and app_secret else c["token"]
+        try:
             dbg = requests.get(f"{c['base']}/debug_token", timeout=30, params={
-                "input_token": c["token"], "access_token": f"{app_id}|{app_secret}"}).json().get("data", {})
+                "input_token": c["token"], "access_token": quem}).json().get("data", {})
             exp = dbg.get("expires_at") or 0
-            out["token"] = {"valido": dbg.get("is_valid"), "app_id": dbg.get("app_id"),
+            acesso = dbg.get("data_access_expires_at") or 0
+            out["token"] = {"valido": dbg.get("is_valid"), "tipo": dbg.get("type"),
+                            "app_id": dbg.get("app_id"), "app": dbg.get("application"),
                             "expira": "nunca" if not exp else
                             datetime.fromtimestamp(exp, timezone.utc).isoformat(),
-                            "escopos": dbg.get("scopes")}
+                            "acesso_a_dados_expira": "nunca" if not acesso else
+                            datetime.fromtimestamp(acesso, timezone.utc).isoformat()}
+        except Exception as e:  # diagnóstico nunca derruba a verificação
+            out["token"] = f"debug_token indisponível: {type(e).__name__}"
     precisa = {"instagram_basic", "instagram_content_publish"}
     if isinstance(out.get("permissoes"), list) and not precisa <= set(out["permissoes"]):
         raise Bloqueio(f"Faltam permissões: {sorted(precisa - set(out['permissoes']))}")
