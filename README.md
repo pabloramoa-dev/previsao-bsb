@@ -1,3 +1,23 @@
+# Previsão BSB — HyperFrames e Kokoro
+
+**Pipeline atual de piloto (sem publicação):** [Piloto HyperFrames BSB — Bira e Bia](https://github.com/pabloramoa-dev/previsao-bsb/actions/workflows/piloto_hyperframes.yml).
+
+- Bira às 6h: `pm_alex:0.82+pm_santa:0.18`; Bia às 18h: `pf_dora:0.85+af_heart:0.15`.
+- Render pelo HyperFrames 0.8.96, GSAP 3.15.0 e TTS Kokoro, com sincronismo labial por amplitude; código-base original do RJ.
+- Novo cenário ilustrado com Congresso Nacional, Esplanada e Catedral.
+- Coleta real Open-Meteo de cinco regiões e rodízio de localidades, sem dados fabricados.
+- Reel 1080 x 1920, áudio, cena animada, legendas e entrega em artifact MP4.
+- No workflow, selecione `bira` para **hoje**, `bia` para **amanhã**. Nenhum piloto publica.
+- **O workflow antigo `reels_instagram.yml` está integralmente desativado**; não ativar sem substituir por um publicador validado.
+
+**Estado de validação:** arquivos e configuração adicionados ao GitHub, mas render do workflow, MP4 e QA não foram confirmados nesta sessão. Não confundir implementação do código com vídeo efetivamente renderizado ou publicado.
+
+## Execução manual de piloto
+
+GitHub Actions → **Piloto HyperFrames BSB — Bira e Bia** → Run workflow → Bira ou Bia. Conferir o artefato `PILOTO-HYPERFRAMES-BSB-<run_id>`, o MP4, `CAPA.jpg`, `LEGENDA.txt`, roteiro e pacote. Se a etapa falhar, consultar o log antes de liberar a publicação.
+
+---
+
 # Previsão BSB — @previsaobsb
 
 Pipeline independente para **Reels automáticos sobre Brasília e as regiões administrativas do Distrito Federal**.
