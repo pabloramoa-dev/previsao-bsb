@@ -1,4 +1,4 @@
-"""Estúdio BSB: Open-Meteo -> roteiro -> Kokoro -> HyperFrames original RJ -> MP4."""
+"""Estúdio BSB: MET Norway -> roteiro -> Kokoro -> HyperFrames original RJ -> MP4."""
 import argparse
 import json
 import os
@@ -9,7 +9,7 @@ import wave
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -22,6 +22,10 @@ from compor import APRESENTADOR, compor
 from estudio.amplitude import gerar_cues
 from boletim import REGIOES
 
+MET_URL="https://api.met.no/weatherapi/locationforecast/2.0/complete"
+MET_UA="PrevisaoBSB/1.0 (https://www.instagram.com/previsaobsb/)"
+FUSO=ZoneInfo("America/Sao_Paulo")
+
 VOZES={"bira":("pm_alex:0.82+pm_santa:0.18",1.04,0.22),
        "bia":("pf_dora:0.85+af_heart:0.15",1.02,0.24)}
 DIAS=("SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO","DOMINGO")
@@ -31,27 +35,37 @@ def run(*args):
     subprocess.run(list(map(str,args)), check=True, cwd=ROOT)
 
 def coletar(dia):
+    """MET Norway locationforecast/complete (gratuita, CC BY 4.0, uso comercial
+    permitido com crédito). Agrega as horas locais do dia pedido. A MET não
+    fornece probabilidade de chuva nem rajadas para o Brasil: usamos umidade
+    máxima e vento máximo (sustentado), sem inventar nenhum número."""
     resultado=[]
     for indice,(regiao,locais) in enumerate(REGIOES.items()):
         nome,lat,lon=locais[(dia.toordinal()+indice)%len(locais)]
-        campos=["temperature_2m_min","temperature_2m_max","precipitation_sum",
-                "precipitation_probability_max","wind_gusts_10m_max"]
-        url="https://api.open-meteo.com/v1/forecast?"+urlencode({
-            "latitude":lat,"longitude":lon,"daily":",".join(campos),
-            "timezone":"America/Sao_Paulo","start_date":str(dia),"end_date":str(dia)})
-        with urlopen(url,timeout=35) as resp:
-            data=json.load(resp)["daily"]
-        if data["time"] != [str(dia)]:
-            raise ValueError("Data meteorológica divergente para "+nome)
-        vals=[data[key][0] for key in campos]
-        if any(v is None or not isinstance(v,(int,float)) for v in vals):
-            raise ValueError("Dado meteorológico faltando para "+nome)
-        a,b,chuva,prob,vento=vals
-        if a > b or not -10<=a<=50 or not -10<=b<=50:
+        url=MET_URL+"?"+urlencode({"lat":round(lat,4),"lon":round(lon,4)})
+        with urlopen(Request(url,headers={"User-Agent":MET_UA}),timeout=45) as resp:
+            serie=json.load(resp)["properties"]["timeseries"]
+        horas=[]
+        for ponto in serie:
+            quando=datetime.fromisoformat(ponto["time"].replace("Z","+00:00")).astimezone(FUSO)
+            if quando.date()==dia and "next_1_hours" in ponto["data"]:
+                horas.append(ponto["data"])
+        if len(horas)<8:
+            raise ValueError("Previsão horária incompleta para "+nome)
+        det=[h["instant"]["details"] for h in horas]
+        temps=[d.get("air_temperature") for d in det]
+        if any(not isinstance(t,(int,float)) for t in temps):
+            raise ValueError("Temperatura faltando para "+nome)
+        a,b=min(temps),max(temps)
+        if not -10<=a<=50 or not -10<=b<=50:
             raise ValueError("Temperatura inconsistente para "+nome)
+        chuva=sum(h["next_1_hours"]["details"].get("precipitation_amount",0) for h in horas)
+        umid=max(d.get("relative_humidity",0) for d in det)
+        vento=max(d.get("wind_speed",0) for d in det)*3.6
+        nuvens=sum(d.get("cloud_area_fraction",0) for d in det)/len(det)
         resultado.append({"nome":nome,"regiao":regiao,"min":round(a),
-            "max":round(b),"chuva_mm":round(chuva,1),
-            "prob_chuva":round(prob),"vento_kmh":round(vento)})
+            "max":round(b),"chuva_mm":round(chuva,1),"umidade":round(umid),
+            "vento_kmh":round(vento),"nuvens":round(nuvens),"horas":len(horas)})
     return resultado
 
 def fmt_mm(v):
@@ -154,19 +168,19 @@ def main():
         if i:cuts.append(max(.1,beat["ini"]-.18))
     data_ext=f"{DIAS[hoje.weekday()]}, {hoje.day} DE {MESES[hoje.month]}"
     clima=max(cidades,key=lambda x:x["chuva_mm"])
-    ceu="chuva" if clima["prob_chuva"]>=60 else ("nublado" if clima["prob_chuva"]>=40 else "sol")
+    ceu="chuva" if clima["chuva_mm"]>=2 else ("nublado" if sum(c["nuvens"] for c in cidades)/len(cidades)>=60 else "sol")
     pacote={"dur":dur,"personagem":args.personagem,"formato":"amanha_no_rio" if args.day_offset else "rio_antes_de_sair",
         "data":str(hoje),"data_ext":data_ext,"data_previsao":str(dia),"hora":"18:00" if args.day_offset else "06:00",
         "ceu":ceu,"cidades":cidades,"batidas":beats,"cenas":cenas,"cortes":cuts,
         "transicoes":["whip-pan"]*len(cuts),"palavras":all_words,
         "boca":[[q["start"],q["value"]] for q in cues],"direcao":[],
-        "dicas_praticas":["Previsão por região administrativa","Fonte: Open-Meteo"]}
+        "dicas_praticas":["Previsão por região administrativa","Fonte: MET Norway (CC BY 4.0)"]}
     (work/"pacote.json").write_text(json.dumps(pacote,ensure_ascii=False,indent=2),encoding="utf-8")
     (HF/"index.html").write_text(compor(pacote),encoding="utf-8")
     (output.parent/"LEGENDA.txt").write_text(
         f"Previsão {'de amanhã' if args.day_offset else 'de hoje'} no DF • {dia:%d/%m/%Y}\n"+
         "\n".join(f"{c['nome']}: {c['min']}° a {c['max']}°" for c in cidades)+
-        "\nManda pra quem mora no DF! #PrevisaoBSB #Brasilia #DF",encoding="utf-8")
+        "\nManda pra quem mora no DF!\nDados: MET Norway (CC BY 4.0)\n#PrevisaoBSB #Brasilia #DF",encoding="utf-8")
     if args.so_html:
         print("HTML HyperFrames produzido:",HF/"index.html")
         return
