@@ -1,0 +1,32 @@
+name: Verificar Meta e conta @previsaobsb
+
+# Checagem segura, sem publicar: token válido, host/versão da Graph API,
+# conta de destino == @previsaobsb (ID e username), permissões concedidas e
+# cota de publicação. Roda manualmente e toda segunda-feira (monitoramento).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 13 * * 1"   # segunda, 10:17 de Brasília
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verificar credenciais e destino
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
+          EXPECTED_IG_USERNAME: ${{ vars.EXPECTED_IG_USERNAME || 'previsaobsb' }}
+        run: |
+          pip install -q requests
+          python -m publicador.instagram_bsb verificar

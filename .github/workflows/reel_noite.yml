@@ -1,0 +1,211 @@
+name: Reel da noite — Previsão BSB
+
+# Publicação diária da NOITE (18h de Brasília): Bia com a previsão DE AMANHÃ.
+# O Reel da manhã (06h, Bira com a previsão de hoje) é o `reel_manha.yml`.
+#
+# Fluxo: coleta Open-Meteo -> roteiro -> Kokoro -> HyperFrames (job `render`,
+# que reutiliza o piloto_hyperframes.yml) -> QA -> MP4 -> Meta Graph API
+# (upload resumível, sem URL pública: o repo é privado) -> permalink.
+#
+# HORÁRIO (repo privado: minutos de Actions contam, então nada de esperar horas)
+#   17:35  gatilho externo (cron-job.org -> repository_dispatch bsb_bia)
+#   17:35-17:45  render (~5-9 min)
+#   18:00  ALVO: publica o vídeo pronto
+#   21:00  PRAZO: disparo automático depois disso não publica
+# Crons do GitHub abaixo = RESERVA (atrasam com frequência). Todos caem no
+# mesmo grupo de concorrência e na mesma trava do dia: só um Reel por turno.
+#
+# CHAVE GERAL: variable BSB_AUTO_PUBLISH. Diferente de 'true' => disparos
+# automáticos não fazem nada. Disparo manual começa SEM publicar.
+
+on:
+  schedule:
+    - cron: "35 20 * * *"   # 17:35 de Brasília (reserva)
+    - cron: "50 20 * * *"   # 17:50 de Brasília (reserva)
+  repository_dispatch:
+    types: [bsb_bia]
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: "Publicar no @previsaobsb? Desmarcado = só renderiza (ensaio)"
+        type: boolean
+        default: false
+      ignorar_trava:
+        description: "Publicar mesmo que já tenha saído o Reel deste turno"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  TURNO: noite
+  ALVO: "18:00"
+  PRAZO: "21:00"
+
+concurrency:
+  group: previsao-bsb-publicacao
+  cancel-in-progress: false
+
+jobs:
+  trava:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      pular: ${{ steps.c.outputs.pular }}
+      publicar: ${{ steps.c.outputs.publicar }}
+      data: ${{ steps.c.outputs.data }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - id: c
+        env:
+          EVENTO: ${{ github.event_name }}
+          IN_PUBLICAR: ${{ inputs.publicar }}
+          IN_IGNORAR: ${{ inputs.ignorar_trava }}
+          AUTO: ${{ vars.BSB_AUTO_PUBLISH }}
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, json, os, pathlib
+          brt = dt.timezone(dt.timedelta(hours=-3))
+          agora = dt.datetime.now(brt)
+          hoje = agora.date().isoformat()
+          manual = os.environ['EVENTO'] == 'workflow_dispatch'
+          auto_ok = os.environ.get('AUTO', '') == 'true'
+          publicar = (os.environ.get('IN_PUBLICAR') == 'true') if manual else auto_ok
+          ignorar = manual and os.environ.get('IN_IGNORAR') == 'true'
+          est = pathlib.Path('data/publicacoes.json')
+          estado = json.loads(est.read_text()) if est.exists() else {}
+          chave = f"{hoje}:{os.environ['TURNO']}"
+          ja = bool(estado.get(chave, {}).get('media_id'))
+          hh, mm = map(int, os.environ['PRAZO'].split(':'))
+          atrasado = not manual and agora > agora.replace(hour=hh, minute=mm, second=0, microsecond=0)
+          desligado = not manual and not auto_ok
+          pular = desligado or atrasado or (ja and publicar and not ignorar)
+          print(f'{chave} agora={agora:%H:%M} manual={manual} auto={auto_ok} '
+                f'ja_publicado={ja} atrasado={atrasado} publicar={publicar} pular={pular}')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"pular={'sim' if pular else 'nao'}\npublicar={str(publicar).lower()}\ndata={hoje}\n")
+          motivo = ('BSB_AUTO_PUBLISH desligado' if desligado else 'fora do prazo' if atrasado
+                    else 'turno já publicado' if pular else None)
+          if motivo:
+              open(os.environ['GITHUB_STEP_SUMMARY'], 'a').write(f'### Sem Reel: {motivo}\n')
+          PY
+
+  render:
+    needs: trava
+    if: needs.trava.outputs.pular != 'sim'
+    uses: ./.github/workflows/piloto_hyperframes.yml
+    with:
+      personagem: bia
+
+  publicar:
+    needs: [trava, render]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: PILOTO-HYPERFRAMES-BSB-${{ github.run_id }}
+          path: output
+      - name: QA do MP4 (formato, áudio, duração, data)
+        env:
+          DATA: ${{ needs.trava.outputs.data }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq ffmpeg >/dev/null
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          v = 'output/REEL_BSB.mp4'
+          p = json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',v]))
+          vs = [s for s in p['streams'] if s['codec_type']=='video'][0]
+          aus = [s for s in p['streams'] if s['codec_type']=='audio']
+          dur = float(p['format']['duration'])
+          vol = subprocess.run(['ffmpeg','-i',v,'-af','volumedetect','-f','null','-'],capture_output=True,text=True).stderr
+          media = float(vol.split('mean_volume:')[1].split('dB')[0]) if 'mean_volume' in vol else -99
+          pac = json.load(open('output/work_bsb/pacote.json', encoding='utf-8'))
+          erros = []
+          if (vs['width'], vs['height']) != (1080, 1920): erros.append(f"resolução {vs['width']}x{vs['height']}")
+          if not aus: erros.append('sem áudio')
+          if media < -40: erros.append(f'áudio quase mudo ({media} dB)')
+          if not 10 <= dur <= 90: erros.append(f'duração {dur:.1f}s fora de 10-90s')
+          if pac.get('data') != os.environ['DATA']: erros.append(f"data do pacote {pac.get('data')} != {os.environ['DATA']}")
+          if pac.get('personagem') != 'bia': erros.append(f"personagem {pac.get('personagem')}")
+          resumo = (f"### QA\n- {vs['width']}x{vs['height']} {vs['codec_name']}, {dur:.1f}s, áudio {media} dB\n"
+                    f"- personagem: {pac.get('personagem')} | previsão para {pac.get('data_previsao')}\n"
+                    "```\n" + open('output/LEGENDA.txt', encoding='utf-8').read() + "\n```\n")
+          open(os.environ['GITHUB_STEP_SUMMARY'],'a').write(resumo)
+          print(resumo)
+          if erros: sys.exit('QA reprovado: ' + '; '.join(erros))
+          PY
+
+      - name: Quadros de revisão (só em ensaio manual) -> branch qa
+        if: github.event_name == 'workflow_dispatch' && needs.trava.outputs.publicar != 'true'
+        run: |
+          set -euo pipefail
+          D="qa/${{ github.run_id }}-${TURNO}"
+          mkdir -p "/tmp/$D"
+          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 output/REEL_BSB.mp4)
+          for f in 0.08 0.3 0.55 0.8 0.97; do
+            T=$(python3 -c "print(round($DUR*$f,2))")
+            ffmpeg -v error -ss "$T" -i output/REEL_BSB.mp4 -frames:v 1 -vf scale=540:-1 "/tmp/$D/t$T.jpg"
+          done
+          cp output/CAPA.jpg output/LEGENDA.txt output/work_bsb/roteiro.txt "/tmp/$D/" || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin qa || true
+          if git rev-parse -q --verify origin/qa >/dev/null; then git worktree add /tmp/qa origin/qa; else git worktree add --detach /tmp/qa && (cd /tmp/qa && git checkout --orphan qa-new && git rm -rfq .); fi
+          mkdir -p "/tmp/qa/$D" && cp /tmp/$D/* "/tmp/qa/$D/"
+          cd /tmp/qa && git add qa && git commit -qm "QA ${{ github.run_id }} ${TURNO}" && git push origin HEAD:qa
+          echo "Quadros: https://github.com/${{ github.repository }}/tree/qa/$D" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ensaio das travas (sem publicar)
+        if: needs.trava.outputs.publicar != 'true'
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
+          EXPECTED_IG_USERNAME: ${{ vars.EXPECTED_IG_USERNAME || 'previsaobsb' }}
+        run: |
+          pip install -q requests
+          if [ -z "$IG_ACCESS_TOKEN" ]; then echo "Secrets ainda não configurados: ensaio só de render."; exit 0; fi
+          python -m publicador.instagram_bsb publicar --video output/REEL_BSB.mp4 \
+            --legenda output/LEGENDA.txt --turno "$TURNO" --data "${{ needs.trava.outputs.data }}"
+
+      - name: Aguardar o horário de publicar (ALVO)
+        if: needs.trava.outputs.publicar == 'true' && github.event_name != 'workflow_dispatch'
+        run: python -m publicador.aguardar_horario publicar --alvo "$ALVO"
+
+      - name: Publicar no @previsaobsb
+        if: needs.trava.outputs.publicar == 'true'
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
+          EXPECTED_IG_USERNAME: ${{ vars.EXPECTED_IG_USERNAME || 'previsaobsb' }}
+        run: |
+          pip install -q requests
+          python -m publicador.instagram_bsb publicar --video output/REEL_BSB.mp4 \
+            --legenda output/LEGENDA.txt --turno "$TURNO" \
+            --data "${{ needs.trava.outputs.data }}" --capa-ms 2000 --publicar
+
+      # O histórico é o estado das travas: grava mesmo se a publicação falhou no meio.
+      - name: Persistir histórico de publicações
+        if: always() && needs.trava.outputs.publicar == 'true'
+        run: |
+          set -euo pipefail
+          test -f data/publicacoes.json || exit 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/publicacoes.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Publicações: ${TURNO} ${{ needs.trava.outputs.data }} (run ${{ github.run_id }})"
+          for i in 1 2 3; do git pull --rebase -q origin "${{ github.event.repository.default_branch }}" && git push -q origin HEAD:"${{ github.event.repository.default_branch }}" && exit 0; sleep 5; done
+          exit 1
