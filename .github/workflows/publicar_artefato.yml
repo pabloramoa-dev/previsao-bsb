@@ -1,0 +1,87 @@
+name: Publicar Reel já renderizado (recuperação)
+
+# Recuperação de falha: publica o MP4 de uma execução anterior do
+# reel_manha/reel_noite (artifact PILOTO-HYPERFRAMES-BSB-<run_id>) sem
+# renderizar de novo. Só manual. As mesmas travas do publicador valem:
+# conta == @previsaobsb, um Reel por turno, legenda repetida bloqueia.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "ID da execução que gerou o MP4 (número na URL da run)"
+        required: true
+      turno:
+        description: "Turno"
+        type: choice
+        options: [manha, noite]
+        required: true
+      publicar:
+        description: "Publicar de verdade? Desmarcado = só confere as travas"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: previsao-bsb-publicacao
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: PILOTO-HYPERFRAMES-BSB-${{ inputs.run_id }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: output
+      - name: Conferir data e personagem do MP4
+        id: chk
+        env:
+          TURNO: ${{ inputs.turno }}
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, json, os, sys
+          hoje = dt.datetime.now(dt.timezone(dt.timedelta(hours=-3))).date().isoformat()
+          p = json.load(open('output/work_bsb/pacote.json', encoding='utf-8'))
+          esperado = 'bira' if os.environ['TURNO'] == 'manha' else 'bia'
+          print('pacote:', p.get('data'), p.get('personagem'), '| hoje:', hoje)
+          if p.get('data') != hoje: sys.exit(f"MP4 é de {p.get('data')}, não de hoje ({hoje}): previsão vencida")
+          if p.get('personagem') != esperado: sys.exit(f"personagem {p.get('personagem')} não é do turno {os.environ['TURNO']}")
+          open(os.environ['GITHUB_OUTPUT'], 'a').write(f'data={hoje}\n')
+          PY
+      - name: Publicar (ou ensaiar) no @previsaobsb
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION }}
+          EXPECTED_IG_USERNAME: ${{ vars.EXPECTED_IG_USERNAME || 'previsaobsb' }}
+        run: |
+          pip install -q requests
+          FLAG=""; [ "${{ inputs.publicar }}" = "true" ] && FLAG="--publicar"
+          python -m publicador.instagram_bsb publicar --video output/REEL_BSB.mp4 \
+            --legenda output/LEGENDA.txt --turno "${{ inputs.turno }}" \
+            --data "${{ steps.chk.outputs.data }}" --capa-ms 2000 $FLAG
+      - name: Persistir histórico de publicações
+        if: always() && inputs.publicar
+        run: |
+          set -euo pipefail
+          test -f data/publicacoes.json || exit 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/publicacoes.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Publicações: ${{ inputs.turno }} (recuperação, run ${{ github.run_id }})"
+          for i in 1 2 3; do git pull --rebase -q origin "${{ github.event.repository.default_branch }}" && git push -q origin HEAD:"${{ github.event.repository.default_branch }}" && exit 0; sleep 5; done
+          exit 1
