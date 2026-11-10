@@ -1,0 +1,86 @@
+name: Piloto HyperFrames BSB — Bira e Bia
+on:
+  workflow_dispatch:
+    inputs:
+      personagem:
+        description: "Apresentador: Bira (manhã) ou Bia (amanhã)"
+        required: true
+        type: choice
+        options:
+          - bira
+          - bia
+        default: bira
+  push:
+    paths:
+      - "estudio/**"
+      - "hyperframes/**"
+      - "video/package.json"
+      - "video/package-lock.json"
+      - ".github/workflows/piloto_hyperframes.yml"
+permissions:
+  contents: read
+concurrency:
+  group: bsb-piloto-hf-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HYPERFRAMES_NO_TELEMETRY: "1"
+      DO_NOT_TRACK: "1"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: video/package-lock.json
+      - name: Instalar FFmpeg e dependências do Kokoro
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng libsndfile1 fonts-dejavu-core
+          pip install "numpy>=1.26,<3" "kokoro-onnx" "soundfile"
+      - name: Instalar HyperFrames exatamente como no Previsão RJ
+        run: |
+          npm ci --prefix video
+          cd video && npx --no-install hyperframes browser ensure
+      - name: Preparar assets visuais e GSAP
+        run: |
+          mkdir -p hyperframes/assets/vendor hyperframes/assets/fonts hyperframes/assets/audio
+          cp video/node_modules/gsap/dist/gsap.min.js hyperframes/assets/vendor/gsap.min.js
+          curl -fsSL --retry 3 -o hyperframes/assets/fonts/BarlowCondensed-ExtraBold.woff2 https://github.com/google/fonts/raw/refs/heads/main/ofl/barlowcondensed/BarlowCondensed-ExtraBold.woff2 || true
+          curl -fsSL --retry 3 -o hyperframes/assets/fonts/BarlowCondensed-Bold.woff2 https://github.com/google/fonts/raw/refs/heads/main/ofl/barlowcondensed/BarlowCondensed-Bold.woff2 || true
+          for font in Regular Bold ExtraBold Black; do
+            curl -fsSL --retry 3 -o "hyperframes/assets/fonts/Poppins-${font}.ttf" "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-${font}.ttf" || true
+          done
+      - name: Gerar piloto com previsão atual (sem publicar)
+        env:
+          BSB_PERSONAGEM: ${{ inputs.personagem || 'bira' }}
+        run: |
+          if [ "$BSB_PERSONAGEM" = "bia" ]; then OFFSET=1; else OFFSET=0; fi
+          python estudio/gerar_hf_bsb.py --personagem "$BSB_PERSONAGEM" --day-offset "$OFFSET" --out output/REEL_BSB.mp4
+      - name: QA obrigatório
+        run: |
+          test -s output/REEL_BSB.mp4
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 output/REEL_BSB.mp4)" = "1080"
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 output/REEL_BSB.mp4)" = "1920"
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 output/REEL_BSB.mp4
+          test -s output/LEGENDA.txt
+          test -s output/CAPA.jpg
+      - name: Guardar MP4, capa, previsão, roteiro e timeline
+        uses: actions/upload-artifact@v4
+        with:
+          name: PILOTO-HYPERFRAMES-BSB-${{ github.run_id }}
+          path: |
+            output/REEL_BSB.mp4
+            output/CAPA.jpg
+            output/LEGENDA.txt
+            output/work_bsb/roteiro.txt
+            output/work_bsb/pacote.json
+          retention-days: 7
+          if-no-files-found: error
