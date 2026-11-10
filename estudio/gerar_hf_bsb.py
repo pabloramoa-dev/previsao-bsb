@@ -132,8 +132,6 @@ def main():
     dur=round(segs[-1]["fim"]+0.8,2)
     npad=max(0,int(dur*sr)-len(samples))
     samples=np.pad(samples,(0,npad))
-    audio_cama(dur,sr,assets/"trilha.wav")
-    audio_cama(dur,sr,assets/"whoosh.wav")
     cues=gerar_cues(samples,sr,fps=30)
     cenas=[]
     tipos={"gancho":"numero","resumo":"quadro","alerta":"alerta","cta":"cta"}
