@@ -58,3 +58,18 @@ Apenas o comando de renderização não publica nada.
 ## Política de segurança
 
 Tokens somente em GitHub Secrets; logs não devem imprimir tokens. Não compartilhar credenciais nem reutilizar ID do Instagram do RJ. Datas e horários da previsão devem corresponder ao fuso local, e publicações repetidas precisam de verificação do histórico.
+
+## Migração obrigatória para o motor RJ (10/11/2026)
+
+**A automação legada com espeak-ng e imagens estáticas foi rejeitada e está sem agendamento e sem publicação. NÃO ativar BSB_AUTO_PUBLISH nem rodar render_reel.py para produção.**
+
+O projeto original analisado é `pabloramoa-dev/previsao-rj`, particularmente:
+- `hyperframes/compor.py`: compositor HTML/GSAP de telejornal, avatares Bira/Bia em SVG com lip sync, cards e ticker;
+- `hyperframes/gerar_hf.py`: pipeline de dados, roteiro, narração Kokoro, áudio e HyperFrames;
+- `src/previsao_rj/render/characters/kokoro.py`: TTS neural local, vozes combinadas;
+- `src/previsao_rj/render/characters/pipeline.py`: presets Bira `pm_alex:0.82+pm_santa:0.18` e Bia `pf_dora:0.85+af_heart:0.15`;
+- `.github/actions/setup-hyperframes/action.yml`: instalação do renderizador.
+
+**Já importados para análise e adaptação:** `hyperframes/compor.py` e `estudio/kokoro.py`. O compositor importado ainda requer o motor de timeline, assets GSAP, configuração HyperFrames, fontes, tratamento dos roteiros, amplitude para boca e QA; importá-lo isoladamente não produz MP4.
+
+**Próxima implementação:** portar o gerador, as dependências e os assets do RJ; substituir a geografia, paisagem, rótulos e identidade do Rio por Brasília/DF; alimentar seis ou mais regiões administrativas a partir da Open-Meteo, com leitura diária e rodízio; preservar exatamente as vozes e personagens originais; renderizar vídeo piloto em artefato; executar testes técnicos e revisão visual; só então restaurar a publicação na Meta. Sem fallback silencioso para slides estáticos ou espeak-ng.
