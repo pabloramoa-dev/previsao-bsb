@@ -6,16 +6,7 @@ on:
       - "boletim.py"
       - "publicar_reel.py"
       - ".github/workflows/reels_instagram.yml"
-  schedule:
-    # 06:07 e 18:07, horário fixo de Brasília (UTC-3)
-    - cron: "7 9 * * *"
-    - cron: "7 21 * * *"
   workflow_dispatch:
-    inputs:
-      publicar:
-        description: "Publicar no Instagram? false = somente gerar MP4"
-        type: boolean
-        default: false
 permissions:
   contents: write
 concurrency:
@@ -35,7 +26,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Verificar segredos em modo de publicação
-        if: (github.event_name == 'schedule' && vars.BSB_AUTO_PUBLISH == 'true') || inputs.publicar == true
+        if: false # Publicação desativada: aguardando migração HyperFrames + Kokoro
         run: |
           test -n "$INSTAGRAM_ACCESS_TOKEN" || { echo "::error::Secret INSTAGRAM_ACCESS_TOKEN ausente"; exit 1; }
           test -n "$INSTAGRAM_USER_ID" || { echo "::error::Secret INSTAGRAM_USER_ID ausente"; exit 1; }
@@ -65,7 +56,7 @@ jobs:
             output/legenda.txt
           retention-days: 3
       - name: Publicar no Instagram via Graph API
-        if: (github.event_name == 'schedule' && vars.BSB_AUTO_PUBLISH == 'true') || inputs.publicar == true
+        if: false # Publicação desativada: aguardando migração HyperFrames + Kokoro
         env:
           SLOT: ${{ github.event.schedule || 'manual' }}
         run: |
@@ -73,7 +64,7 @@ jobs:
           if [ "$SLOT" = "7 9 * * *" ]; then TURNO="manha"; elif [ "$SLOT" = "7 21 * * *" ]; then TURNO="tarde"; else TURNO="manual-${{ github.run_id }}"; fi
           python publicar_reel.py --video output/previsaobsb.mp4 --caption output/legenda.txt --slot "$DATA-$TURNO"
       - name: Preservar comprovante e idempotência
-        if: ((github.event_name == 'schedule' && vars.BSB_AUTO_PUBLISH == 'true') || inputs.publicar == true) && success()
+        if: false # Não publicar a versão antiga
         run: |
           if [ -f publicados.json ]; then
             git config user.name "github-actions[bot]"
