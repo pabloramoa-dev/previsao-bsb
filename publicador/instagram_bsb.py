@@ -117,8 +117,12 @@ def diagnostico() -> dict:
         # debug_token (token de usuário/usuário do sistema do mesmo app).
         quem = f"{app_id}|{app_secret}" if app_id and app_secret else c["token"]
         try:
-            dbg = requests.get(f"{c['base']}/debug_token", timeout=30, params={
-                "input_token": c["token"], "access_token": quem}).json().get("data", {})
+            resp = requests.get(f"{c['base']}/debug_token", timeout=30, params={
+                "input_token": c["token"], "access_token": quem}).json()
+            dbg = resp.get("data") or {}
+            if dbg.get("is_valid") is None:
+                erro = resp.get("error", {})
+                raise RuntimeError(f"{erro.get('code', '')} {erro.get('message', 'sem dados')}"[:200])
             exp = dbg.get("expires_at") or 0
             acesso = dbg.get("data_access_expires_at") or 0
             out["token"] = {"valido": dbg.get("is_valid"), "tipo": dbg.get("type"),
@@ -128,7 +132,7 @@ def diagnostico() -> dict:
                             "acesso_a_dados_expira": "nunca" if not acesso else
                             datetime.fromtimestamp(acesso, timezone.utc).isoformat()}
         except Exception as e:  # diagnóstico nunca derruba a verificação
-            out["token"] = f"debug_token indisponível: {type(e).__name__}"
+            out["token"] = f"validade não consultada (debug_token): {e}"
     precisa = {"instagram_basic", "instagram_content_publish"}
     if isinstance(out.get("permissoes"), list) and not precisa <= set(out["permissoes"]):
         raise Bloqueio(f"Faltam permissões: {sorted(precisa - set(out['permissoes']))}")
