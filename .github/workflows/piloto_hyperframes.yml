@@ -46,6 +46,8 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: video/package-lock.json
+      - name: Testar rodízio das 35 regiões administrativas
+        run: python -m unittest discover -s tests -p "test_rodizio_bsb.py" -v
       - name: Instalar FFmpeg e dependências do Kokoro
         run: |
           sudo apt-get update -qq
