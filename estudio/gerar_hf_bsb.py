@@ -20,7 +20,7 @@ sys.path.insert(0,str(HF))
 sys.path.insert(0,str(ROOT))
 from compor import APRESENTADOR, compor
 from estudio.amplitude import gerar_cues
-from boletim import REGIOES
+from boletim import indice_destaque, selecionar_localidades
 
 MET_URL="https://api.met.no/weatherapi/locationforecast/2.0/complete"
 MET_UA="PrevisaoBSB/1.0 (https://www.instagram.com/previsaobsb/)"
@@ -34,14 +34,13 @@ MESES=("","JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO"
 def run(*args):
     subprocess.run(list(map(str,args)), check=True, cwd=ROOT)
 
-def coletar(dia):
+def coletar(dia, data_publicacao, turno):
     """MET Norway locationforecast/complete (gratuita, CC BY 4.0, uso comercial
     permitido com crédito). Agrega as horas locais do dia pedido. A MET não
     fornece probabilidade de chuva nem rajadas para o Brasil: usamos umidade
     máxima e vento máximo (sustentado), sem inventar nenhum número."""
     resultado=[]
-    for indice,(regiao,locais) in enumerate(REGIOES.items()):
-        nome,lat,lon=locais[(dia.toordinal()+indice)%len(locais)]
+    for regiao,(nome,lat,lon) in selecionar_localidades(data_publicacao, turno):
         url=MET_URL+"?"+urlencode({"lat":round(lat,4),"lon":round(lon,4)})
         with urlopen(Request(url,headers={"User-Agent":MET_UA}),timeout=45) as resp:
             serie=json.load(resp)["properties"]["timeseries"]
@@ -73,12 +72,12 @@ def fmt_mm(v):
     s=f"{round(float(v),1):g}"
     return s.replace(".",",")
 
-def batidas(cidades,amanha):
+def batidas(cidades,amanha,destaque_indice=0):
     quando="amanhã" if amanha else "hoje"
-    mais_quente=max(cidades,key=lambda x:x["max"])
+    destaque=cidades[destaque_indice]
     maior_chuva=max(cidades,key=lambda x:x["chuva_mm"])
-    primeira={"fala":f"{mais_quente['nome']} pode chegar a {mais_quente['max']} graus {quando}. E como fica o restante do Distrito Federal?",
-      "tipo":"gancho","dados":{"numero":f"{mais_quente['max']}°","sub":mais_quente["nome"].upper(),"titulo":"TEMPERATURA"}}
+    primeira={"fala":f"{destaque['nome']} pode chegar a {destaque['max']} graus {quando}. E como fica o restante do Distrito Federal?",
+      "tipo":"gancho","dados":{"numero":f"{destaque['max']}°","sub":destaque["nome"].upper(),"titulo":"TEMPERATURA"}}
     resumo="; ".join(f"{c['nome']}, {c['min']} a {c['max']} graus" for c in cidades)
     quadro={"fala":f"Confira as cinco regiões. {resumo}.",
        "tipo":"resumo","dados":{"titulo":"TEMPERATURAS NO DF","cidades":cidades}}
@@ -126,8 +125,10 @@ def main():
         raise RuntimeError("O nome visual da apresentadora deve ser somente BIA")
     hoje=datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     dia=hoje+timedelta(days=args.day_offset)
-    cidades=coletar(dia)
-    beats=batidas(cidades,args.day_offset==1)
+    turno='manha' if args.personagem=='bira' else 'noite'
+    cidades=coletar(dia,hoje,turno)
+    abertura=indice_destaque(hoje,turno,len(cidades))
+    beats=batidas(cidades,args.day_offset==1,abertura)
     output=Path(args.out).resolve()
     output.parent.mkdir(parents=True,exist_ok=True)
     assets=HF/"assets"/"audio"
@@ -172,6 +173,9 @@ def main():
     pacote={"dur":dur,"personagem":args.personagem,"formato":"amanha_no_rio" if args.day_offset else "rio_antes_de_sair",
         "data":str(hoje),"data_ext":data_ext,"data_previsao":str(dia),"hora":"18:00" if args.day_offset else "06:00",
         "ceu":ceu,"cidades":cidades,"batidas":beats,"cenas":cenas,"cortes":cuts,
+        "rodizio":{"data_publicacao":str(hoje),"turno":turno,
+                  "localidade_abertura":cidades[abertura]["nome"],
+                  "localidades":[c["nome"] for c in cidades]},
         "transicoes":["whip-pan"]*len(cuts),"palavras":all_words,
         "boca":[[q["start"],q["value"]] for q in cues],"direcao":[],
         "dicas_praticas":["Previsão por região administrativa","Fonte: MET Norway (CC BY 4.0)"]}

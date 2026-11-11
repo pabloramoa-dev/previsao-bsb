@@ -290,7 +290,7 @@ def cena_quadro(p, cena, bat):
         linhas.append(f'''
   <div class="qd-linha">
    <div class="qd-barra"></div>
-   <div class="qd-main"><div class="qd-cidade">{esc(c["nome"].upper())}</div>
+   <div class="qd-main"><div class="qd-cidade" style="font-size:{42 if len(c['nome']) <= 13 else (35 if len(c['nome']) <= 18 else 28)}px">{esc(c["nome"].upper())}</div>
    <div class="qd-cels"><span class="qd-min">{metric(c, "min", "°")}</span><span class="qd-max">{metric(c, "max", "°")}</span></div></div>
    <div class="qd-metrics"><span>UMIDADE <b>{metric(c, "umidade", "%")}</b></span><span>VOLUME <b>{metric(c, "chuva_mm", " mm", 1)}</b></span><span>VENTO <b>{metric(c, "vento_kmh", " km/h")}</b></span></div>
   </div>''')

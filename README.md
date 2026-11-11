@@ -19,6 +19,29 @@ Fluxo: MET Norway (gratuita, CC BY 4.0, crédito na legenda; quadro com umidade 
 
 ---
 
+
+## Rodízio de todas as regiões administrativas — 11/11/2026
+
+Brasília e o Distrito Federal têm 35 regiões administrativas (RAs), não 35 municípios.
+O catálogo do boletim.py agora inclui todas elas, em cinco grupos editoriais:
+Centro, Norte, Oeste, Sul e Leste.
+
+- Cada Reel mostra cinco RAs, uma de cada grupo, e altera os nomes a cada turno.
+- O rodízio usa data de **publicação** e turno (Bira às 6h, Bia às 18h),
+  não a data da previsão; isso evita repetir os mesmos nomes na noite
+  anterior e na manhã seguinte.
+- Em até cinco dias de produção regular, as 35 localidades aparecem ao
+  menos uma vez nos dez vídeos. A abertura também troca de região a cada Reel.
+- Reexecuções do mesmo dia/turno são determinísticas. A seleção fica
+  registrada no pacote JSON entregue pelo HyperFrames.
+- Previsão: dados reais da MET Norway. Coordenadas são pontos de referência
+  aproximados de cada núcleo urbano, não a previsão uniforme da RA inteira.
+- Testes de diversidade rodam no workflow antes da renderização.
+
+Referência: https://www.gdfsaude.df.gov.br/web/guest
+
+---
+
 # Previsão BSB — HyperFrames e Kokoro
 
 **Pipeline atual de piloto (sem publicação):** [Piloto HyperFrames BSB — Bira e Bia](https://github.com/pabloramoa-dev/previsao-bsb/actions/workflows/piloto_hyperframes.yml).
