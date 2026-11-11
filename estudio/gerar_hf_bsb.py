@@ -77,7 +77,7 @@ def batidas(cidades,amanha,destaque_indice=0):
     destaque=cidades[destaque_indice]
     maior_chuva=max(cidades,key=lambda x:x["chuva_mm"])
     primeira={"fala":f"{destaque['nome']} pode chegar a {destaque['max']} graus {quando}. E como fica o restante do Distrito Federal?",
-      "tipo":"gancho","dados":{"numero":f"{mais_quente['max']}°","sub":destaque["nome"].upper(),"titulo":"TEMPERATURA"}}
+      "tipo":"gancho","dados":{"numero":f"{destaque['max']}°","sub":destaque["nome"].upper(),"titulo":"TEMPERATURA"}}
     resumo="; ".join(f"{c['nome']}, {c['min']} a {c['max']} graus" for c in cidades)
     quadro={"fala":f"Confira as cinco regiões. {resumo}.",
        "tipo":"resumo","dados":{"titulo":"TEMPERATURAS NO DF","cidades":cidades}}
