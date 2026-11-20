@@ -137,3 +137,16 @@ O projeto original analisado é `pabloramoa-dev/previsao-rj`, particularmente:
 **Já importados para análise e adaptação:** `hyperframes/compor.py` e `estudio/kokoro.py`. O compositor importado ainda requer o motor de timeline, assets GSAP, configuração HyperFrames, fontes, tratamento dos roteiros, amplitude para boca e QA; importá-lo isoladamente não produz MP4.
 
 **Próxima implementação:** portar o gerador, as dependências e os assets do RJ; substituir a geografia, paisagem, rótulos e identidade do Rio por Brasília/DF; alimentar seis ou mais regiões administrativas a partir da Open-Meteo, com leitura diária e rodízio; preservar exatamente as vozes e personagens originais; renderizar vídeo piloto em artefato; executar testes técnicos e revisão visual; só então restaurar a publicação na Meta. Sem fallback silencioso para slides estáticos ou espeak-ng.
+
+
+## Plantão diário de tempo severo — 14h de Brasília
+
+Workflow: `.github/workflows/alerta_14h.yml`. A consulta é agendada diariamente para 17:00 UTC (14:00 BRT), com testes e checagem de 10 localidades reais do canal. Não confunda a hora do disparo com a hora prevista para a tempestade.
+
+Fontes: INMET (aviso CAP válido com emissor oficial, status, município/UF, validade e URL verificados), consulta contextual à Defesa Civil, ICON Seamless e GFS Seamless via Open-Meteo. O monitor compara os dois modelos em janelas de 24 horas, bloqueia dados incompletos e trata aviso oficial não confirmado pelos dois modelos como **aviso do INMET**, jamais como concordância numérica.
+
+Limites do plantão: precipitação de 20 mm/h, 30 mm/3h, 50 mm/24h; rajadas de 60 km/h ou mais; temporal WMO 95/96/99; granizo somente WMO 96/99 ou aviso oficial. O risco **não é ocorrência certa**. Com fonte INMET indisponível ou consulta vencida, não há publicação.
+
+Se houver risco corroborado, ou aviso oficial válido para a área consultada, o workflow pode renderizar um Reel com o estúdio e as vozes originais do próprio canal e encaminhar Reel e Story à Meta, com recibos separados para não duplicar. Sem risco ou com validação incompleta, não publica. Para verificar manualmente sem postar, use **Run workflow** com `dry_run=true` (padrão); `dry_run=false` autoriza o mesmo fluxo de publicação, somente quando a validação tiver aprovado o alerta. Alterações no GitHub fazem apenas consulta e não publicam.
+
+Relatórios, recibos e MP4 de cada execução ficam no artifact da execução por 3 dias. O histórico de publicações confirmadas fica em `data/alertas_14h_publicados.json`.
