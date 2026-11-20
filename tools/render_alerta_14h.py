@@ -13,7 +13,7 @@ def main():
         nome="Brasília"
         t=rel["temperaturas_reais"][nome]
     cidades=[{"nome":nome,"regiao":"Distrito Federal",
-              "min":t["min"],"max":t["max"],"chuva_mm":0,
+              "min":t["min"],"max":t["max"],"chuva_mm":t["chuva_mm"],
               "umidade":0,"vento_kmh":0,"nuvens":80,"horas":24}]
     beats=batidas(rel)
     # O gerador do DF aceita gancho/resumo/alerta/cta; adapta fala sem cartão
