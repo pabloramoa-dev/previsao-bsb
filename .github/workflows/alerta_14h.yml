@@ -65,13 +65,13 @@ jobs:
         run: |
           echo 'Nenhuma publicação: sem alerta validado, ou fonte INMET indisponível.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v4
-        if: steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run))
+        if: steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[teste-render-alerta]')))
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: video/package-lock.json
       - name: Dependências do estúdio BSB
-        if: steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run))
+        if: steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[teste-render-alerta]')))
         run: |
           sudo apt-get update -qq && sudo apt-get install -y ffmpeg espeak-ng libsndfile1 fonts-dejavu-core
           pip install "numpy>=1.26,<3" kokoro-onnx soundfile
@@ -82,7 +82,7 @@ jobs:
 
       - name: Renderizar plantão do canal
         id: render
-        if: steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run))
+        if: steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[teste-render-alerta]')))
         run: python -m tools.render_alerta_14h
       - name: QA do vídeo
         if: steps.render.outcome == 'success'
@@ -97,7 +97,7 @@ jobs:
           PY
       - name: Criar Release temporário para Meta
         id: release
-        if: steps.render.outcome == 'success'
+        if: steps.render.outcome == 'success' && (steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -108,14 +108,14 @@ jobs:
 
       - name: Publicar Reels e Stories
         id: publicar
-        if: steps.render.outcome == 'success'
+        if: steps.render.outcome == 'success' && (steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)))
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION || 'v26.0' }}
         run: python -m tools.publicar_alerta_14h --video-url "${{ steps.release.outputs.url }}"
       - name: Persistir recibos de cada mídia
-        if: always() && steps.render.outcome == 'success'
+        if: always() && steps.render.outcome == 'success' && (steps.consulta.outputs.publicar == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)))
         run: |
           if [[ ! -f data/alertas_14h_publicados.json ]]; then exit 0; fi
           git config user.name 'github-actions[bot]'
