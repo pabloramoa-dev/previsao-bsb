@@ -2,6 +2,7 @@
 import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
+from estudio.kokoro import normalizar_horario_para_voz
 import subprocess
 import tempfile
 from zoneinfo import ZoneInfo
@@ -72,7 +73,7 @@ def main():
             image = tmp / f"{i:02d}.png"
             audio = tmp / f"{i:02d}.wav"
             video = tmp / f"{i:02d}.mp4"
-            spoken = sentence.replace("°C", " graus").replace("mm", " milímetros").replace("%", " por cento")
+            spoken = normalizar_horario_para_voz(sentence.replace("°C", " graus").replace("mm", " milímetros").replace("%", " por cento"))
             slide(image, region, sentence, i, len(areas), today.strftime("%d/%m/%Y"))
             run("espeak-ng", "-v", "pt-br", "-s", "145", "-w", audio, spoken)
             run("ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
