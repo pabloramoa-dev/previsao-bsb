@@ -7,7 +7,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import requests
 
-CONFIG = {"uf":"DF","label":"Distrito Federal","handle":"@previsaobsb","municipio":"Brasília","defesa_civil":"https://www.defesacivil.df.gov.br/","cidades":[["Brasília",-15.7801,-47.9292],["Taguatinga",-15.834,-48.055],["Ceilândia",-15.819,-48.108],["Gama",-16.013,-48.062],["Planaltina",-15.62,-47.65],["Sobradinho",-15.652,-47.789],["Samambaia",-15.871,-48.089],["Santa Maria",-16.003,-47.985],["Brazlândia",-15.673,-48.2],["Paranoá",-15.776,-47.779]]}
+CONFIG = {"uf":"DF","label":"Distrito Federal","handle":"@previsaobsb","municipio":"Brasília","defesa_civil":"https://www.ssp.df.gov.br/","cidades":[["Brasília",-15.7801,-47.9292],["Taguatinga",-15.834,-48.055],["Ceilândia",-15.819,-48.108],["Gama",-16.013,-48.062],["Planaltina",-15.62,-47.65],["Sobradinho",-15.652,-47.789],["Samambaia",-15.871,-48.089],["Santa Maria",-16.003,-47.985],["Brazlândia",-15.673,-48.2],["Paranoá",-15.776,-47.779]]}
 TZ = ZoneInfo("America/Sao_Paulo")
 INMET = "https://apiprevmet3.inmet.gov.br/avisos/ativos"
 FORECAST = "https://api.open-meteo.com/v1/forecast"
@@ -172,7 +172,8 @@ def verificar(agora=None):
     eventos.sort(key=lambda x:(-PRIORIDADE[x["tipo"]],-x["valor"],x["inicio"]))
     modo="dois_modelos"
     avisos=oficial["fontes"]["inmet"]["dados"]
-    if not eventos:
+    tem_risco_para_hoje=any(datetime.fromisoformat(e["inicio"]).date()==agora.date() for e in eventos)
+    if not tem_risco_para_hoje:
         candidatos=[a for a in avisos if a["tipo"] in ("temporal","chuva","granizo","vento")
                     and datetime.fromisoformat(a["inicio"])<=agora<datetime.fromisoformat(a["fim"])]
         candidatos.sort(key=lambda a:((a["severidade"] or "")=="Severe",len(a["cidades"])),reverse=True)
