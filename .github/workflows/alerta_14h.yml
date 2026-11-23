@@ -1,7 +1,7 @@
-name: Alerta regional de tempo severo — 11h BRT
+name: Alerta severo diário — 11h40 BRT
 on:
   schedule:
-    - cron: '0 14 * * *'
+    - cron: '40 14 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
