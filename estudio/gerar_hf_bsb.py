@@ -169,6 +169,21 @@ def batidas(cidades,amanha,destaque_indice=0,data_previsao=None):
     maior_chuva=max(cidades,key=lambda x:x["chuva_mm"])
     primeira={"fala":gancho_rotativo(cidades, data_previsao, quando, ancora=destaque, canal="bsb"),
       "tipo":"gancho","dados":{"numero":f"{destaque['max']}°","sub":destaque["nome"].upper(),"titulo":"TEMPERATURA"}}
+    # Acumulado previsto >= 50 mm: abertura obrigatória, antes das temperaturas.
+    from math import isfinite
+    fortes = sorted((c for c in cidades if isinstance(c.get("chuva_mm"), (int, float))
+                     and not isinstance(c["chuva_mm"], bool) and isfinite(c["chuva_mm"])
+                     and c["chuva_mm"] >= 50), key=lambda c: -c["chuva_mm"])
+    if fortes:
+        pico = fortes[0]
+        nomes = ", ".join(c["nome"] for c in fortes[:3])
+        if len(fortes) > 3:
+            nomes += " e outras localidades"
+        mm = fmt_mm(pico["chuva_mm"])
+        primeira = {"fala": (f"Se você mora em {nomes}, preste atenção! Grande volume de chuva "
+                            f"previsto {quando}: até {mm} milímetros no dia, com risco de alagamentos."),
+                    "tipo": "gancho", "dados": {"numero": f"{mm} mm",
+                    "sub": pico["nome"].upper(), "titulo": "GRANDE VOLUME DE CHUVA"}}
     resumo="; ".join(f"{c['nome']}, {c['min']} a {c['max']} graus" for c in cidades)
     quadro={"fala":f"Confira as cinco regiões. {resumo}.",
        "tipo":"resumo","dados":{"titulo":"TEMPERATURAS NO DF","cidades":cidades}}
