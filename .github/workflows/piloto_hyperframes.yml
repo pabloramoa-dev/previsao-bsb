@@ -68,8 +68,16 @@ jobs:
           done
       - name: Gerar piloto com previsão atual (sem publicar)
         env:
-          BSB_PERSONAGEM: ${{ inputs.personagem || 'bira' }}
+          BSB_PERSONAGEM: ${{ inputs.personagem }}
         run: |
+          # Validação por push (sem personagem): escolhe o turno pela hora de
+          # Brasília. Bira à noite pedia "hoje" com poucas horas restantes e a
+          # coleta recusava (run 46084143984); depois do meio-dia vale a Bia
+          # (amanhã, dia inteiro). Reels diários sempre informam o personagem.
+          if [ -z "$BSB_PERSONAGEM" ]; then
+            if [ "$(TZ=America/Sao_Paulo date +%H)" -lt 12 ]; then BSB_PERSONAGEM=bira; else BSB_PERSONAGEM=bia; fi
+            echo "Validação sem personagem: usando $BSB_PERSONAGEM"
+          fi
           if [ "$BSB_PERSONAGEM" = "bia" ]; then OFFSET=1; else OFFSET=0; fi
           python estudio/gerar_hf_bsb.py --personagem "$BSB_PERSONAGEM" --day-offset "$OFFSET" --out output/REEL_BSB.mp4
       - name: Comprimir para o Instagram (H.264 CRF 21, AAC 128k, faststart)
